@@ -73,7 +73,7 @@ flow authOrchestrator {
     role "You are an authentication and identity management specialist."
 }
 
-workflow @after update:servicenow/incident {
+workflow @after create:servicenow/incident {
     if ((servicenow/incident.category == "AUTH" or servicenow/incident.ai_processor == "auth") and servicenow/incident.ai_status == "in-processing") {
         {incidentInformation {
             sys_id servicenow/incident.sys_id,
