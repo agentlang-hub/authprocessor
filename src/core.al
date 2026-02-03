@@ -63,10 +63,10 @@ flow authOrchestrator {
     authTriager --> "PASSWORD_RESET" passwordResetHandler
     authTriager --> "MFA_ISSUE" mfaIssueHandler
     authTriager --> "ACCOUNT_LOCKOUT" accountLockoutHandler
-    authTriager --> "UNKNOWN" {servicenow/incident {sys_id? incidentInformation.sys_id, ai_status "failed-to-process", requires_human true}}
-    passwordResetHandler --> {servicenow/incident {sys_id? incidentInformation.sys_id, ai_status "processed"}}
-    mfaIssueHandler --> {servicenow/incident {sys_id? incidentInformation.sys_id, ai_status "processed"}}
-    accountLockoutHandler --> {servicenow/incident {sys_id? incidentInformation.sys_id, ai_status "processed"}}
+    authTriager --> "UNKNOWN" {servicenow/incident {sys_id? incidentInformation.sys_id, ai_status "failed-to-process", requires_human true, ai_reason "Unable to classify authentication issue.", resolution "Manual review required.", data {"comments": "REQUIRES MANUAL INTERVENTION: Unable to classify authentication issue.\nKey context:\n- Summary: " + incidentInformation.data.short_description + "\n- Details: " + incidentInformation.data.description + "\nSuggested next steps: validate user identity, determine auth failure type, and apply reset/unlock as needed."}}}
+    passwordResetHandler --> {servicenow/incident {sys_id? incidentInformation.sys_id, ai_status "processed", requires_human false, ai_reason "Classified as password reset request.", resolution "Password reset initiated.", data {"comments": "Resolved by AI: Password reset initiated.\nKey context:\n- Summary: " + incidentInformation.data.short_description + "\n- Details: " + incidentInformation.data.description + "\nResolution steps: verify user identity, issue reset per policy, and confirm login success."}}}
+    mfaIssueHandler --> {servicenow/incident {sys_id? incidentInformation.sys_id, ai_status "processed", requires_human false, ai_reason "Classified as MFA issue.", resolution "MFA issue handling initiated.", data {"comments": "Resolved by AI: MFA issue handling initiated.\nKey context:\n- Summary: " + incidentInformation.data.short_description + "\n- Details: " + incidentInformation.data.description + "\nResolution steps: verify user identity, re-enroll MFA or provide backup codes, and confirm MFA challenge success."}}}
+    accountLockoutHandler --> {servicenow/incident {sys_id? incidentInformation.sys_id, ai_status "processed", requires_human false, ai_reason "Classified as account lockout.", resolution "Account lockout handling initiated.", data {"comments": "Resolved by AI: Account lockout handling initiated.\nKey context:\n- Summary: " + incidentInformation.data.short_description + "\n- Details: " + incidentInformation.data.description + "\nResolution steps: review lockout reason, unlock account per policy, and confirm access restored."}}}
 }
 
 @public agent authOrchestrator {
@@ -74,10 +74,10 @@ flow authOrchestrator {
 }
 
 workflow @after update:servicenow/incident {
-    if (servicenow/incident.category == "AUTH" or servicenow/incident.ai_processor == "auth") {
+    if ((servicenow/incident.category == "AUTH" or servicenow/incident.ai_processor == "auth") and servicenow/incident.ai_status == "in-processing") {
         {incidentInformation {
             sys_id servicenow/incident.sys_id,
-            status servicenow/incident.state,
+            status servicenow/incident.status,
             data servicenow/incident.data,
             category servicenow/incident.category,
             ai_status servicenow/incident.ai_status,
